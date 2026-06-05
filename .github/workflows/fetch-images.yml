@@ -1,0 +1,27 @@
+name: Fetch and commit images from Google Drive
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fetch-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download images from Google Drive
+        run: |
+          mkdir -p images
+          curl -L "https://drive.usercontent.google.com/download?id=1V4G0XSLm7YD38DwY7xKs4K-8Rv5lOjBj&export=download&confirm=t" -o images/skolarituslearn1.jpg
+          curl -L "https://drive.usercontent.google.com/download?id=1aOSyXZlWfS7qgIpJjOJgZAlsedrFapLI&export=download&confirm=t" -o images/skolarituslearn2.jpg
+
+      - name: Commit and push images
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add images/
+          git diff --staged --quiet || git commit -m "Add images from Google Drive"
+          git push
