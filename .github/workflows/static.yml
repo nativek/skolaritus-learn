@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Validate reduced tutoring prices
+      - name: Validate reduced tutoring prices and About contrast
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -33,6 +33,9 @@ jobs:
               assert rate in pricing, f'Missing reduced rate: {rate}'
           for old_rate in ('R200–R280', 'R280–R380', 'P161–P226', 'P226–P307'):
               assert old_rate not in pricing, f'Outdated rate remains: {old_rate}'
+          assert '.about{background:var(--surf);color:var(--txt)}' in text, 'About contrast fix missing'
+          assert '.about .abt,.about .cct{color:var(--txt)}' in text, 'About heading fix missing'
+          assert '.about .abb,.about .ccs{color:var(--muted)}' in text, 'About body fix missing'
           PY
       - name: Setup Pages
         uses: actions/configure-pages@v5
