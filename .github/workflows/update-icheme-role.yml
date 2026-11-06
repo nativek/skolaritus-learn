@@ -1,0 +1,50 @@
+name: Update IChemE volunteer role
+on:
+  push:
+    paths: ['.github/workflows/update-icheme-role.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add current IChemE role
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p = Path('index.html')
+          text = p.read_text()
+          role = "Young People's Engagement Volunteer (STEM) · Jul 2026–present"
+          pattern = r'(<div class="cct">IChemE.*?</div>\s*<div class="ccs">)(.*?)(</div>)'
+          match = re.search(pattern, text, flags=re.S)
+          assert match, 'IChemE credential not found; refusing unrelated edits'
+          if role not in match.group(2):
+              updated = match.group(1) + match.group(2) + '<br>' + role + match.group(3)
+              text = text[:match.start()] + updated + text[match.end():]
+              p.write_text(text)
+      - name: Commit role update
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "Add current IChemE Young People's Engagement Volunteer role"
+            git push
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v5
