@@ -1,4 +1,4 @@
-name: Fix About section contrast
+name: Fix and publish About contrast
 on:
   push:
     paths:
@@ -6,33 +6,53 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
 jobs:
-  fix-contrast:
+  fix-and-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Apply theme-aware About styles
+      - name: Apply explicit About colours
         shell: python
         run: |
           from pathlib import Path
           p = Path('index.html')
           text = p.read_text()
           css = '''
-          /* Theme-aware About section contrast */
-          .about{background:var(--surf);color:var(--txt)}
-          .about .abt,.about .cct{color:var(--txt)}
-          .about .abb,.about .ccs{color:var(--muted)}
-          .about .cr{background:var(--soff);border-color:var(--brd)}
+          /* Explicit accessible About colours, including inline text */
+          html[data-theme="light"] .about{background:#f9f8f5!important;color:#1a1812!important}
+          html[data-theme="light"] .about *{color:#1a1812!important}
+          html[data-theme="light"] .about .abb,html[data-theme="light"] .about .ccs{color:#48463f!important}
+          html[data-theme="light"] .about .cr{background:#f0ede8!important;border-color:#c7c3ba!important}
+          html[data-theme="dark"] .about{background:#1a1917!important;color:#f5f3ef!important}
+          html[data-theme="dark"] .about *{color:#f5f3ef!important}
+          html[data-theme="dark"] .about .abb,html[data-theme="dark"] .about .ccs{color:#d0cdc6!important}
+          html[data-theme="dark"] .about .cr{background:#242320!important;border-color:#57534b!important}
           '''
-          assert '</style>' in text
-          if '/* Theme-aware About section contrast */' not in text:
-              p.write_text(text.replace('</style>', css + '\n</style>', 1))
-      - name: Commit contrast fix
+          assert 'class="about"' in text, 'About section selector must be verified'
+          if '/* Explicit accessible About colours, including inline text */' not in text:
+              text = text.replace('</style>', css + '\n</style>', 1)
+              p.write_text(text)
+      - name: Commit corrected source
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
           if ! git diff --cached --quiet; then
-            git commit -m 'Fix About section text contrast in light and dark modes'
+            git commit -m 'Ensure all About text is readable in light and dark themes'
             git push
           fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - name: Publish corrected website
+        id: deployment
+        uses: actions/deploy-pages@v5
