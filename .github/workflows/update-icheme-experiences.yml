@@ -1,0 +1,44 @@
+name: Update IChemE experience cards
+on:
+  push:
+    paths: ['.github/workflows/update-icheme-experiences.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create separate IChemE experiences
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          text = p.read_text()
+          old = '''<div class="cr"><div class="cci">🔬</div><div><div class="cct">IChemE &middot; Schools Engagement Volunteer (STEM)</div><div class="ccs">Institution of Chemical Engineers &middot; 2025–Present<br>Young People's Engagement Volunteer (STEM) · Jul 2026–present</div></div></div>'''
+          new = '''<div class="cr"><div class="cci">🔬</div><div><div class="cct">IChemE &middot; Young People's Engagement Volunteer (STEM)</div><div class="ccs">Institution of Chemical Engineers &middot; Jul 2026–present</div></div></div>
+                <div class="cr"><div class="cci">🔬</div><div><div class="cct">IChemE &middot; Schools Engagement Volunteer (STEM)</div><div class="ccs">Institution of Chemical Engineers &middot; 2025–Jul 2026</div></div></div>'''
+          assert old in text, 'Expected IChemE experience not found; refusing unrelated edits'
+          p.write_text(text.replace(old, new, 1))
+      - name: Commit experience update
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Display current and previous IChemE roles as separate experiences'
+          git push
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v5
