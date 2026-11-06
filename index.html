@@ -209,6 +209,17 @@ footer{padding:var(--sp8) clamp(var(--sp6),6vw,var(--sp20));background:var(--bg)
 .about .abb,.about .ccs{color:var(--muted)}
 .about .cr{background:var(--soff);border-color:var(--brd)}
 
+
+/* Explicit accessible About colours, including inline text */
+html[data-theme="light"] .about{background:#f9f8f5!important;color:#1a1812!important}
+html[data-theme="light"] .about *{color:#1a1812!important}
+html[data-theme="light"] .about .abb,html[data-theme="light"] .about .ccs{color:#48463f!important}
+html[data-theme="light"] .about .cr{background:#f0ede8!important;border-color:#c7c3ba!important}
+html[data-theme="dark"] .about{background:#1a1917!important;color:#f5f3ef!important}
+html[data-theme="dark"] .about *{color:#f5f3ef!important}
+html[data-theme="dark"] .about .abb,html[data-theme="dark"] .about .ccs{color:#d0cdc6!important}
+html[data-theme="dark"] .about .cr{background:#242320!important;border-color:#57534b!important}
+
 </style>
 </head>
 <body>
