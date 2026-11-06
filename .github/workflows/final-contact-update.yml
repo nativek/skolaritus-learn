@@ -1,0 +1,62 @@
+name: Final contact update
+on:
+  push:
+    paths: ['.github/workflows/final-contact-update.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply exact contact edits
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p = Path('index.html')
+          t = p.read_text()
+          btn = r'\s*<a href="https://wa\.me/27736229937".*?</a>'
+          assert re.search(btn, t, flags=re.S), 'SA button not found'
+          t = re.sub(btn, '', t, count=1, flags=re.S)
+          card = r'\s*<div class="cti"><p class="cttype">\U0001F4F1 South Africa WhatsApp</p>.*?</div>'
+          assert re.search(card, t, flags=re.S), 'SA card not found'
+          t = re.sub(card, '', t, count=1, flags=re.S)
+          old = '<p class="ctval">mgcobela-khumalo-8935a7208</p>'
+          new = '<p class="ctval"><a href="https://www.linkedin.com/in/mgcobela-khumalo-leader/" target="_blank" rel="noopener noreferrer" style="color:var(--pri);text-decoration:underline">mgcobela-khumalo-leader</a></p>'
+          assert old in t, 'LinkedIn value not found'
+          t = t.replace(old, new, 1)
+          assert '27736229937' not in t and '+27 73' not in t
+          assert "Young People's Engagement Volunteer (STEM)" in t
+          p.write_text(t)
+          d = Path('debug-contact.txt')
+          d.exists() and d.unlink()
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A index.html debug-contact.txt
+          git commit -m 'Remove South African contact and update LinkedIn'
+          git push
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v5
+      - name: Verify live site
+        run: |
+          sleep 20
+          curl -fsSL "${{ steps.deployment.outputs.page_url }}?v=$GITHUB_SHA" -o live.html
+          grep -q 'mgcobela-khumalo-leader' live.html
+          grep -q "Young People's Engagement Volunteer (STEM)" live.html
+          ! grep -q '27736229937' live.html
