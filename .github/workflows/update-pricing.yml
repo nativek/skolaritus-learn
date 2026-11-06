@@ -1,0 +1,48 @@
+name: Apply revised tutoring prices
+on:
+  push:
+    paths:
+      - '.github/workflows/update-pricing.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  update-pricing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update pricing and session descriptions
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          text = p.read_text()
+          start = text.index('<!-- PRICING -->')
+          end = text.index('</section>', start) + len('</section>')
+          hourly = [('Junior secondary · 1-on-1', 'R150', 'E140', 'P100'), ('Senior secondary · 1-on-1', 'R180', 'E170', 'P120'), ('Group tutoring · 3–5 learners', 'R60', 'E55', 'P40')]
+          section = '<!-- PRICING -->\n<section class="sec" style="background:var(--surf)"><div class="si">\n<p class="slbl">Transparent Pricing</p><h2 class="stitle">Hourly &amp; Monthly Rates</h2>\n<p class="sbody">Pay as you go or choose a monthly package. Each session lasts 60 minutes and is delivered via Microsoft Teams. These are proposed Skolaritus Learn prices, not national market averages.</p>\n<div class="pg">'
+          for i, (label, sa, es, bw) in enumerate(hourly):
+              unit = 'per learner per hour' if i == 2 else 'per hour'
+              section += f'<div class="pc"><p class="pt">{label}</p><div class="pm">{sa}</div><p class="pp">South Africa · {unit}</p><p>Eswatini: {es} · {unit}<br>Botswana: {bw} · {unit}</p></div>\n'
+          section += '</div>\n'
+          packages = [('Junior secondary', [('Starter', 4, 'R560', 'E520', 'P380'), ('Standard', 8, 'R1,080', 'E1,000', 'P720'), ('Intensive', 12, 'R1,560', 'E1,440', 'P1,020')]), ('Senior secondary', [('Starter', 4, 'R680', 'E640', 'P460'), ('Standard', 8, 'R1,300', 'E1,220', 'P880'), ('Intensive', 12, 'R1,900', 'E1,780', 'P1,260')]), ('Group tutoring · 3–5 learners', [('Group Monthly', 4, 'R220/learner', 'E200/learner', 'P150/learner')])]
+          for heading, rows in packages:
+              section += f'<h3 class="sestitle" style="margin-top:var(--sp10)">{heading}</h3><table class="pkt" aria-label="{heading} monthly packages"><thead><tr><th>Package</th><th>Sessions/month</th><th>South Africa/month</th><th>Eswatini/month</th><th>Botswana/month</th></tr></thead><tbody>'
+              for name, count, sa, es, bw in rows:
+                  section += f'<tr><td class="pkn">{name}</td><td>{count}</td><td>{sa}</td><td>{es}</td><td>{bw}</td></tr>'
+              section += '</tbody></table>\n'
+          section += '</div></section>'
+          updated = text[:start] + section + text[end:]
+          updated = updated.replace('Sessions run 60–90 minutes via Microsoft Teams.', 'Sessions last 60 minutes via Microsoft Teams.').replace('2–6 students at the same grade and subject level.', '3–5 learners at the same grade and subject level.')
+          assert all(value in updated for _, rows in packages for row in rows for value in row[2:])
+          assert 'R200<span' not in updated and 'R280<span' not in updated
+          p.write_text(updated)
+      - name: Commit revised prices
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update country-specific hourly and monthly tutoring prices'
+            git push
+          fi
