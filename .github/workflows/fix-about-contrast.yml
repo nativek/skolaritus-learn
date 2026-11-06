@@ -1,0 +1,38 @@
+name: Fix About section contrast
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-about-contrast.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix-contrast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply theme-aware About styles
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          text = p.read_text()
+          css = '''
+          /* Theme-aware About section contrast */
+          .about{background:var(--surf);color:var(--txt)}
+          .about .abt,.about .cct{color:var(--txt)}
+          .about .abb,.about .ccs{color:var(--muted)}
+          .about .cr{background:var(--soff);border-color:var(--brd)}
+          '''
+          assert '</style>' in text
+          if '/* Theme-aware About section contrast */' not in text:
+              p.write_text(text.replace('</style>', css + '\n</style>', 1))
+      - name: Commit contrast fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'Fix About section text contrast in light and dark modes'
+            git push
+          fi
