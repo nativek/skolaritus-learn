@@ -1,0 +1,73 @@
+name: Site profile update
+on:
+  push:
+    paths: ['.github/workflows/site-profile-update.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply profile changes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p = Path('index.html')
+          t = p.read_text()
+          cur = "IChemE &middot; Young People's Engagement Volunteer (STEM)"
+          prev = "IChemE &middot; Schools Engagement Volunteer (STEM)"
+          pat = r'<div class="cr"><div class="cci">[^<]*</div><div><div class="cct">IChemE[^<]*</div><div class="ccs">.*?</div></div></div>'
+          cards = re.findall(pat, t, flags=re.S)
+          assert cards, 'IChemE card not found'
+          if cur not in t:
+              def card(title, dates):
+                  return '<div class="cr"><div class="cci">\U0001F52C</div><div><div class="cct">' + title + '</div><div class="ccs">Institution of Chemical Engineers &middot; ' + dates + '</div></div></div>'
+              new = card(cur, 'Jul 2026\u2013present') + '\n      ' + card(prev, '2025\u2013Jul 2026')
+              t = re.sub(pat, lambda m: new, t, count=1, flags=re.S)
+          cti = r'<div class="cti">.*?</div>\s*<div class="ctval">.*?</div>\s*</div>'
+          found = re.findall(cti, t, flags=re.S)
+          print('contact cards found:', len(found))
+          for c in found:
+              if re.search(r'\+\s?27|wa\.me/27|tel:\+?27|\b27\s?\d{2}\s?\d{3}', c):
+                  t = t.replace(c, '', 1)
+          url = 'https://www.linkedin.com/in/mgcobela-khumalo-leader/'
+          li = '<div class="cti"><div class="cttype">LinkedIn</div><div class="ctval"><a href="' + url + '" target="_blank" rel="noopener noreferrer">Mgcobela Khumalo</a></div></div>'
+          existing = [c for c in re.findall(cti, t, flags=re.S) if 'linkedin' in c.lower()]
+          if existing:
+              t = t.replace(existing[0], li, 1)
+          else:
+              t = re.sub(r'(<div class="ctg">)', lambda m: m.group(1) + '\n      ' + li, t, count=1)
+          assert cur in t and prev in t and url in t
+          assert not re.search(r'\+\s?27|wa\.me/27|tel:\+?27', t), 'South African number still present'
+          p.write_text(t)
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet || git commit -m 'Update IChemE roles, contacts and LinkedIn'
+          git push
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v5
+      - name: Verify live site
+        run: |
+          sleep 20
+          curl -fsSL "${{ steps.deployment.outputs.page_url }}?v=$GITHUB_SHA" -o live.html
+          grep -q "Young People's Engagement Volunteer (STEM)" live.html
+          grep -q 'mgcobela-khumalo-leader' live.html
+          ! grep -Eq '\+ ?27|wa\.me/27' live.html
