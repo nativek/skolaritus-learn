@@ -1,0 +1,58 @@
+name: Add writing and project support
+on:
+  push:
+    paths: ['.github/workflows/add-writing-support.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add writing support card
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          t = p.read_text()
+          start = t.index('<!-- SUBJECTS -->')
+          end = t.index('</section>', start)
+          section = t[start:end]
+          card = '<div class="sc" id="writing-project-support"><div class="sic" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h6"/></svg></div><h3 class="sn">Writing &amp; Project Support</h3><p class="sd">Teacher-style guidance for essays, school projects and reports: understanding the task, planning, research skills, outlining, paragraph structure, referencing, and feedback on your own draft. Develop clear, original writing while keeping the work your own.</p><span class="sgr">Essays | Projects | Reports</span></div>'
+          if 'id="writing-project-support"' not in section:
+              assert '<div class="sg">' in section
+              section = section.replace('<div class="sg">', '<div class="sg">\n      ' + card, 1)
+          section = section.replace('Five Core Subjects,<br>Taught with Depth', 'Subjects &amp; Academic Support')
+          section = section.replace('Every subject is grounded in A* exam results and deepened by a Chemical Engineering degree. Sessions focus on exam technique and true understanding — not memorisation.', 'Build subject understanding, exam confidence and academic writing skills through guided practice and constructive feedback. Writing support helps you develop and improve your own work.')
+          t = t[:start] + section + t[end:]
+          assert 'id="writing-project-support"' in t
+          p.write_text(t)
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add teacher-style writing, essay and project support'
+            git push
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v5
+      - name: Verify published writing support
+        run: |
+          sleep 20
+          curl --retry 5 --retry-delay 10 -fsSL "${{ steps.deployment.outputs.page_url }}?v=$GITHUB_SHA" -o /tmp/published.html
+          grep -q 'id="writing-project-support"' /tmp/published.html
