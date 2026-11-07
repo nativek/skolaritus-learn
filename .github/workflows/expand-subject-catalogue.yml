@@ -1,0 +1,67 @@
+name: Expand subject catalogue
+on:
+  push:
+    paths: ['.github/workflows/expand-subject-catalogue.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update subject catalogue
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p = Path('index.html')
+          t = p.read_text()
+          start = t.index('<!-- SUBJECTS -->')
+          end = t.index('</section>', start)
+          section = t[start:end]
+          section = re.sub(r'<h2 class="stitle">.*?</h2>', '<h2 class="stitle">Subjects &amp; Academic Support</h2>', section, count=1, flags=re.S)
+          section = re.sub(r'<p class="sbody">.*?</p>', '<p class="sbody">Build subject understanding, exam confidence and writing skills through guided practice, clear explanations and constructive feedback. Lessons are matched to your syllabus and learning goals.</p>', section, count=1, flags=re.S)
+          rows = [('business-commerce-support', 'Business Studies &amp; Commerce', 'South Africa: CAPS Business Studies. Eswatini: Business Studies (JC / EGCSE, formerly SGCSE). Botswana: Business Studies, Commerce, Business Management or Entrepreneurship, according to the learner\u2019s syllabus. Support with business concepts, case studies and exam responses.', 'Business | Commerce | Entrepreneurship'), ('writing-project-support', 'Teacher-Style Writing Support', 'Guided support for essays, school projects and reports: planning, research skills, structure, paragraph development, referencing and constructive feedback on your own draft. You remain the author and complete your own assessed work.', 'Essays | Projects | Reports'), ('geography-support', 'Geography', 'Support with physical and human geography, mapwork, data interpretation, case studies and exam technique, matched to the learner\u2019s grade, form and syllabus.', 'Geography | Mapwork | Exam preparation')]
+          for ident, title, desc, badge in rows:
+              pattern = r'<div class="sc" id="' + ident + r'">.*?<span class="sgr">.*?</span></div>'
+              section = re.sub(pattern, '', section, flags=re.S)
+              icon = '<div class="sic" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 3h12l4 4v14H4zM16 3v5h4M8 12h8M8 16h6"/></svg></div>'
+              card = '<div class="sc" id="' + ident + '">' + icon + '<h3 class="sn">' + title + '</h3><p class="sd">' + desc + '</p><span class="sgr">' + badge + '</span></div>'
+              assert '<div class="sg">' in section
+              section = section.replace('<div class="sg">', '<div class="sg">\n      ' + card, 1)
+          t = t[:start] + section + t[end:]
+          for ident, *_ in rows:
+              assert t.count('id="' + ident + '"') == 1
+          t = t.replace('<div class="sv">5</div><div class="sl">Subjects</div>', '<div class="sv">8</div><div class="sl">Subjects + Writing Support</div>')
+          p.write_text(t)
+      - name: Commit catalogue changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add business, teacher-style writing and geography support'
+            git push
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v5
+      - name: Verify live catalogue
+        run: |
+          sleep 20
+          curl --retry 5 --retry-delay 10 -fsSL "${{ steps.deployment.outputs.page_url }}?v=$GITHUB_SHA" -o /tmp/catalogue.html
+          grep -q 'id="business-commerce-support"' /tmp/catalogue.html
+          grep -q 'id="writing-project-support"' /tmp/catalogue.html
+          grep -q 'id="geography-support"' /tmp/catalogue.html
