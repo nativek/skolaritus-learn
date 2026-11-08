@@ -1,48 +1,48 @@
 name: Deploy static content to Pages
-
 on:
   push:
-    branches: ["main"]
+    branches: ['main']
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
-
 jobs:
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout latest committed website
         uses: actions/checkout@v4
-      - name: Validate reduced tutoring prices and About contrast
+        with:
+          ref: main
+      - name: Validate subject catalogue
+        shell: python
         run: |
-          python - <<'PY'
           from pathlib import Path
           text = Path('index.html').read_text()
-          pricing = text.split('<!-- PRICING -->', 1)[1].split('</section>', 1)[0]
-          for rate in ('R150', 'E140', 'P100', 'R180', 'E170', 'P120', 'R60', 'E55', 'P40'):
-              assert rate in pricing, f'Missing reduced rate: {rate}'
-          for old_rate in ('R200–R280', 'R280–R380', 'P161–P226', 'P226–P307'):
-              assert old_rate not in pricing, f'Outdated rate remains: {old_rate}'
-          assert '.about{background:var(--surf);color:var(--txt)}' in text, 'About contrast fix missing'
-          assert '.about .abt,.about .cct{color:var(--txt)}' in text, 'About heading fix missing'
-          assert '.about .abb,.about .ccs{color:var(--muted)}' in text, 'About body fix missing'
-          PY
-      - name: Setup Pages
+          for ident in ('business-commerce-support', 'writing-project-support', 'geography-support'):
+              assert 'id="' + ident + '"' in text, 'Missing catalogue card: ' + ident
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-      - name: Upload artifact
+      - name: Prepare clean static website
+        run: |
+          mkdir -p /tmp/skolaritus-site
+          cp index.html /tmp/skolaritus-site/index.html
+          cp -R images /tmp/skolaritus-site/images
+          touch /tmp/skolaritus-site/.nojekyll
+      - name: Upload website
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
-      - name: Deploy to GitHub Pages
+          path: /tmp/skolaritus-site
+      - name: Deploy website
         id: deployment
         uses: actions/deploy-pages@v5
+      - name: Record published URL
+        run: |
+          echo 'Website deployment completed: ${{ steps.deployment.outputs.page_url }}' >> "$GITHUB_STEP_SUMMARY"
