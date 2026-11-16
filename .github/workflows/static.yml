@@ -18,7 +18,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout latest committed website
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
       - name: Validate subject catalogue
@@ -29,7 +29,7 @@ jobs:
           for ident in ('business-commerce-support', 'writing-project-support', 'geography-support'):
               assert 'id="' + ident + '"' in text, 'Missing catalogue card: ' + ident
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - name: Prepare clean static website
         run: |
           mkdir -p /tmp/skolaritus-site
@@ -37,12 +37,12 @@ jobs:
           cp -R images /tmp/skolaritus-site/images
           touch /tmp/skolaritus-site/.nojekyll
       - name: Upload website
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: /tmp/skolaritus-site
       - name: Deploy website
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
       - name: Record published URL
         run: |
           echo 'Website deployment completed: ${{ steps.deployment.outputs.page_url }}' >> "$GITHUB_STEP_SUMMARY"
